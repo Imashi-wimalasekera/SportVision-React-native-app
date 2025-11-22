@@ -1,21 +1,23 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function TeamCard({ team, onPress, isFav, onToggleFav }) {
+  const { colors } = useTheme();
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onPress(team)}>
+    <TouchableOpacity style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={() => onPress(team)}>
       {team.strTeamBadge ? (
         <Image source={{ uri: team.strTeamBadge }} style={styles.avatar} />
       ) : (
-        <View style={styles.avatarPlaceholder} />
+        <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]} />
       )}
       <View style={styles.content}>
-        <Text style={styles.title}>{team.strTeam}</Text>
-        <Text numberOfLines={2} style={styles.desc}>{team.strStadium || team.strLeague}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{team.strTeam}</Text>
+        <Text numberOfLines={2} style={[styles.desc, { color: colors.muted }]}>{team.strStadium || team.strLeague}</Text>
       </View>
       <TouchableOpacity onPress={() => onToggleFav(team)} style={styles.icon}>
-        <Feather name={isFav ? 'heart' : 'heart'} color={isFav ? 'red' : '#666'} size={20} />
+        <Feather name={'heart'} color={isFav ? colors.accent : colors.muted} size={20} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
