@@ -1,43 +1,6 @@
 # SportVision (React Native / Expo)
 
-Lightweight mobile app built with Expo + React Native. Uses TheSportsDB free API to fetch teams, players and upcoming matches. This README explains setup, how to provide your TheSportsDB API key, and where to find main features implemented so far.
-
-## Quick Start (development)
-
-1. Install dependencies
-
-```powershell
-cd SportsVision
-npm install
-```
-
-2. Add your TheSportsDB API key (recommended)
-
-- Create a `.env` file at the project root (we created a `.env` placeholder). Add the key:
-
-```
-THESPORTSDB_KEY=your_real_key_here
-```
-
-- We wired `app.config.js` to load `.env` into `expo.extra` so the app reads the key via `expo-constants`.
-
-Alternative: set the key in `app.json` under `expo.extra.THESPORTSDB_KEY` or set the environment variable before starting:
-
-```powershell
-$env:THESPORTSDB_KEY = 'your_real_key_here'; npm start
-```
-
-If no key is provided the app falls back to TheSportsDB public test key `1` (rate-limited) — useful for quick local checks but not for sustained testing.
-
-3. Start the dev server
-
-```powershell
-npm start
-```
-
-# SportVision (React Native / Expo)
-
-A compact, actionable README for local development and debugging.
+Lightweight mobile app built with Expo + React Native. Uses TheSportsDB free API to fetch teams, players and upcoming matches. 
 
 ## 🚀 Quick Start
 
