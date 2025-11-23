@@ -1,56 +1,90 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { fetchTeamsByLeague, fetchPlayersByTeam } from '../api/sportsApi';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BackHeader from '../components/BackHeader';
 
 export default function PlayersListScreen(){
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
-  const league = route.params?.league || 'English Premier League';
+  const leagueParam = route.params?.league || 'English Premier League';
 
-  const [allPlayers, setAllPlayers] = useState([]);
+  const [league, setLeague] = useState(leagueParam);
+  const [teams, setTeams] = useState([]);
+  const [teamsIndex, setTeamsIndex] = useState(0);
+  const [playersAcc, setPlayersAcc] = useState([]);
   const [visible, setVisible] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const PAGE_SIZE = 16;
 
-  useEffect(() => { load(); }, [league]);
+  useEffect(() => { resetAndLoad(); }, [league]);
+  const insets = useSafeAreaInsets();
 
-  const load = async () => {
+  const resetAndLoad = async () => {
     setLoading(true);
+    setTeams([]);
+    setPlayersAcc([]);
+    setVisible([]);
+    setTeamsIndex(0);
     try {
-      const teams = await fetchTeamsByLeague(league);
-      const topTeams = (teams || []).slice(0, 8);
-      let playersAcc = [];
-      await Promise.all(topTeams.map(async (tm) => {
-        const p = await fetchPlayersByTeam(tm.idTeam).catch(()=>[]);
-        if (p && p.length) playersAcc = playersAcc.concat(p);
-      }));
-
-      // dedupe by idPlayer
-      const map = new Map();
-      (playersAcc || []).forEach(pl => {
-        if (!pl) return;
-        const k = pl.idPlayer || pl.id;
-        if (k && !map.has(k)) map.set(k, pl);
-      });
-      const deduped = Array.from(map.values());
-      setAllPlayers(deduped);
-      setVisible(deduped.slice(0, PAGE_SIZE));
+      const t = await fetchTeamsByLeague(league);
+      const topTeams = (t || []).slice(0, 12);
+      setTeams(topTeams);
+      // fetch initial players for first 2 teams
+      await fetchPlayersForNextTeams(2, topTeams, 0);
     } catch (e) {
-      setAllPlayers([]);
-      setVisible([]);
+      setTeams([]);
     } finally { setLoading(false); }
   };
 
-  const loadMore = useCallback(() => {
-    if (visible.length >= allPlayers.length) return;
-    const next = allPlayers.slice(visible.length, visible.length + PAGE_SIZE);
-    setVisible(v => v.concat(next));
-  }, [visible, allPlayers]);
+  const dedupeBy = (arr, key) => {
+    const map = new Map();
+    (arr || []).forEach(item => {
+      if (!item) return;
+      const k = item[key] || item.id || item.idPlayer || item.idEvent || `${item.strPlayer}-${item.strTeam}`;
+      if (k && !map.has(k)) map.set(k, item);
+    });
+    return Array.from(map.values());
+  };
+
+  const fetchPlayersForNextTeams = async (count = 1, fromTeams = teams, startIndex = teamsIndex) => {
+    if (!fromTeams || startIndex >= fromTeams.length) return;
+    const slice = fromTeams.slice(startIndex, startIndex + count);
+    let acc = [];
+    await Promise.all(slice.map(async (tm) => {
+      const p = await fetchPlayersByTeam(tm.idTeam).catch(() => []);
+      if (p && p.length) acc = acc.concat(p);
+    }));
+    const merged = dedupeBy(playersAcc.concat(acc), 'idPlayer');
+    setPlayersAcc(merged);
+    // ensure visible has at least PAGE_SIZE
+    setVisible(v => {
+      const current = v && v.length ? v : merged.slice(0, PAGE_SIZE);
+      return current;
+    });
+    setTeamsIndex(startIndex + slice.length);
+  };
+
+  const loadMore = useCallback(async () => {
+    // if we have more fetched players not yet visible, reveal them
+    if (visible.length < playersAcc.length) {
+      const next = playersAcc.slice(visible.length, visible.length + PAGE_SIZE);
+      setVisible(v => v.concat(next));
+      return;
+    }
+    // otherwise, fetch players from the next team
+    if (teamsIndex < teams.length) {
+      setLoading(true);
+      await fetchPlayersForNextTeams(1, teams, teamsIndex);
+      setLoading(false);
+    }
+  }, [visible, playersAcc, teamsIndex, teams]);
 
   const renderItem = ({ item }) => (
     <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Details', { id: item.idPlayer || item.id, player: item })}>
@@ -63,7 +97,6 @@ export default function PlayersListScreen(){
   );
 
   const LEAGUES = ['English Premier League', 'La Liga', 'Serie A', 'Bundesliga'];
-
   const SkeletonRow = () => (
     <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.card }]}> 
       <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.muted }} />
@@ -73,24 +106,35 @@ export default function PlayersListScreen(){
       </View>
     </View>
   );
+  const samplePlayers = [
+    { idPlayer: 'sp1', strPlayer: 'Liam Smith', strTeam: 'Sample United', strPosition: 'Forward' },
+    { idPlayer: 'sp2', strPlayer: 'Noah Brown', strTeam: 'Example FC', strPosition: 'Midfield' },
+  ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
-      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-            <Feather name="chevron-left" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>All Players</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {LEAGUES.map(l => (
-            <TouchableOpacity key={l} onPress={() => { if (l !== league) navigation.replace('Players', { league: l }); }} style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6, borderRadius: 8, backgroundColor: l === league ? colors.primary : 'transparent' }}>
-              <Text style={{ color: l === league ? '#fff' : colors.text, fontSize: 12 }}>{l.split(' ')[0]}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
+      <BackHeader title={`Players — ${league.split(' ')[0]}`} />
+
+      <View style={{ padding: 12, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <TouchableOpacity onPress={() => setModalOpen(true)} style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ color: colors.text }}>League</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal visible={modalOpen} animationType="fade" transparent onRequestClose={() => setModalOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center' }}>
+          <View style={{ margin: 24, backgroundColor: colors.card, padding: 12, borderRadius: 8 }}>
+            {LEAGUES.map(l => (
+              <TouchableOpacity key={l} onPress={() => { setModalOpen(false); if (l !== league) setLeague(l); }} style={{ padding: 12 }}>
+                <Text style={{ color: l === league ? colors.primary : colors.text }}>{l}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setModalOpen(false)} style={{ padding: 12 }}>
+              <Text style={{ color: colors.muted }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {loading ? (
         <View style={{ padding: 12 }}>
@@ -101,7 +145,13 @@ export default function PlayersListScreen(){
           <SkeletonRow />
         </View>
       ) : (
-        <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idPlayer || i.id} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
+        visible.length === 0 ? (
+          <View style={{ padding: 12 }}>
+            {samplePlayers.map(p => renderItem({ item: p }))}
+          </View>
+        ) : (
+          <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idPlayer || i.id} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
+        )
       )}
     </View>
   );

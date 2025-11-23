@@ -1,23 +1,28 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { fetchTeamsByLeague } from '../api/sportsApi';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BackHeader from '../components/BackHeader';
 
 export default function TeamsListScreen(){
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
-  const league = route.params?.league || 'English Premier League';
+  const leagueParam = route.params?.league || 'English Premier League';
 
+  const [league, setLeague] = useState(leagueParam);
   const [allTeams, setAllTeams] = useState([]);
   const [visible, setVisible] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const PAGE_SIZE = 12;
 
   useEffect(() => { load(); }, [league]);
+  const insets = useSafeAreaInsets();
 
   const load = async () => {
     setLoading(true);
@@ -59,23 +64,36 @@ export default function TeamsListScreen(){
     </View>
   );
 
+  const sampleTeams = [
+    { idTeam: 's1', strTeam: 'Sample United', strLeague: league },
+    { idTeam: 's2', strTeam: 'Example FC', strLeague: league },
+    { idTeam: 's3', strTeam: 'Demo Rovers', strLeague: league },
+  ];
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
-      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-            <Feather name="chevron-left" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>All Teams</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {LEAGUES.map(l => (
-            <TouchableOpacity key={l} onPress={() => { if (l !== league) navigation.replace('Teams', { league: l }); }} style={{ paddingHorizontal: 8, paddingVertical: 6, marginLeft: 6, borderRadius: 8, backgroundColor: l === league ? colors.primary : 'transparent' }}>
-              <Text style={{ color: l === league ? '#fff' : colors.text, fontSize: 12 }}>{l.split(' ')[0]}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
+      <BackHeader title={`Teams — ${league.split(' ')[0]}`} />
+
+      <View style={{ padding: 12, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <TouchableOpacity onPress={() => setModalOpen(true)} style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ color: colors.text }}>League</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal visible={modalOpen} animationType="fade" transparent onRequestClose={() => setModalOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center' }}>
+          <View style={{ margin: 24, backgroundColor: colors.card, padding: 12, borderRadius: 8 }}>
+            {LEAGUES.map(l => (
+              <TouchableOpacity key={l} onPress={() => { setModalOpen(false); if (l !== league) setLeague(l); }} style={{ padding: 12 }}>
+                <Text style={{ color: l === league ? colors.primary : colors.text }}>{l}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setModalOpen(false)} style={{ padding: 12 }}>
+              <Text style={{ color: colors.muted }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {loading ? (
         <View style={{ padding: 12 }}>
@@ -86,7 +104,13 @@ export default function TeamsListScreen(){
           <SkeletonRow />
         </View>
       ) : (
-        <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idTeam} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
+        visible.length === 0 ? (
+          <View style={{ padding: 12 }}>
+            {sampleTeams.map(t => renderItem({ item: t }))}
+          </View>
+        ) : (
+          <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idTeam} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
+        )
       )}
     </View>
   );

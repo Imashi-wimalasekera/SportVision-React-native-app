@@ -161,6 +161,19 @@ export default function HomeScreenFixed() {
             {dummyMatches.map(m => (
               <MatchCard key={m.idEvent || m.id} match={m} />
             ))}
+
+            <TouchableOpacity onPress={() => {
+              const teamIds = (teams || []).slice(0,6).map(t => t.idTeam).filter(Boolean);
+              navigation.navigate('Matches', { league: 'English Premier League', teamIds });
+            }} style={[styles.wideCard, styles.smallCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.smallTitle, { color: colors.text, fontSize: 16 }]}>View All Matches (Top Teams)</Text>
+                <Text style={[styles.smallDesc, { color: colors.muted }]}>See upcoming matches from top teams.</Text>
+              </View>
+              <View style={{ justifyContent: 'center', marginLeft: 12 }}>
+                <Feather name="chevron-right" size={20} color={colors.muted} />
+              </View>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -254,6 +267,7 @@ const styles = StyleSheet.create({
   smallTitle: { fontWeight: '700' },
   smallDesc: { fontSize: 12, marginTop: 4 },
   badge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#f97316', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  wideCard: { width: '100%', padding: 14, borderWidth: 1, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   playerCard: { width: 120, padding: 10, marginHorizontal: 6, borderWidth: 1, borderRadius: 12, alignItems: 'center' },
   playerCardElevated: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
   playerAvatar: { width: 84, height: 84, borderRadius: 42, marginBottom: 8 },
