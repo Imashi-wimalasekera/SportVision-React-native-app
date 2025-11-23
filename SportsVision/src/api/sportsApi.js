@@ -13,3 +13,15 @@ export async function fetchTeamDetails(id) {
   const res = await axios.get(url);
   return res.data.teams && res.data.teams[0];
 }
+
+export async function fetchPlayersByTeam(teamId) {
+  const url = `${BASE}/lookup_all_players.php?id=${teamId}`;
+  const res = await axios.get(url);
+  return res.data && res.data.player ? res.data.player : [];
+}
+
+export async function fetchUpcomingEventsByTeam(teamId) {
+  const url = `${BASE}/eventsnext.php?id=${teamId}`;
+  const res = await axios.get(url);
+  return res.data && res.data.events ? res.data.events : [];
+}

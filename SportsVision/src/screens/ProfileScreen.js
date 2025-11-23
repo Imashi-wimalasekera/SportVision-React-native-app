@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
@@ -10,6 +11,7 @@ export default function ProfileScreen() {
   const user = useSelector((s) => s.auth.user);
   const dispatch = useDispatch();
   const { dark, toggle, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const onLogout = async () => {
     await AsyncStorage.removeItem('@sv_user');
@@ -17,7 +19,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
       <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
           <Feather name="user" size={32} color="#fff" />
@@ -45,7 +47,7 @@ export default function ProfileScreen() {
           <Feather name="chevron-right" size={20} color={colors.muted} />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

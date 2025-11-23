@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { fetchTeamDetails } from '../api/sportsApi';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,6 +15,7 @@ export default function DetailsScreen({ route }) {
   const favourites = useSelector((s) => s.favourites.items);
   const dispatch = useDispatch();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -30,14 +32,14 @@ export default function DetailsScreen({ route }) {
 
   useEffect(() => { dispatch(persistFavourites(favourites)); }, [favourites, dispatch]);
 
-  if (loading) return <View style={[styles.center, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
-  if (!team) return <View style={[styles.center, { backgroundColor: colors.background }]}><Text style={{ color: colors.text }}>Team not found</Text></View>;
+  if (loading) return <SafeAreaView style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}><ActivityIndicator size="large" color={colors.primary} /></SafeAreaView>;
+  if (!team) return <SafeAreaView style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}><Text style={{ color: colors.text }}>Team not found</Text></SafeAreaView>;
 
   const isFav = !!favourites.find((f) => f.idTeam === team.idTeam);
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+    <SafeAreaView style={[styles.wrapper, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
+      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color={colors.primary} />
         </TouchableOpacity>
@@ -53,7 +55,7 @@ export default function DetailsScreen({ route }) {
         </TouchableOpacity>
         <Text style={[styles.desc, { color: colors.text }]}>{team.strDescriptionEN || 'No description available'}</Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

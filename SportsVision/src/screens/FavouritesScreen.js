@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, FlatList, Text, StyleSheet } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import TeamCard from '../components/TeamCard';
@@ -13,29 +14,30 @@ export default function FavouritesScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const onPress = (team) => navigation.navigate('Details', { id: team.idTeam, team });
 
   if (!favourites || favourites.length === 0) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
         <Feather name="heart" size={48} color={colors.muted} />
         <Text style={[styles.emptyText, { color: colors.text }]}>No favourites yet</Text>
         <Text style={[styles.emptySubtext, { color: colors.muted }]}>Add teams to your favourites</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
+      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
         <Feather name="heart" size={24} color={colors.accent} />
         <Text style={[styles.headerTitle, { color: colors.text }]}>Favourites</Text>
       </View>
       <FlatList data={favourites} keyExtractor={(i) => i.idTeam} renderItem={({ item }) => (
         <TeamCard team={item} onPress={onPress} isFav onToggleFav={() => dispatch(toggleFavourite(item))} />
       )} contentContainerStyle={styles.listContent} />
-    </View>
+    </SafeAreaView>
   );
 }
 
