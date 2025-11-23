@@ -157,7 +157,7 @@ export default function HomeScreenFixed() {
               <PlayerCard player={item} />
             )} style={{ marginVertical: 8 }} />
 
-            <SectionHeader title="Upcoming Matches" onViewAll={() => Alert.alert('View All', 'Show all matches')} />
+            <SectionHeader title="Upcoming Matches" onViewAll={() => navigation.navigate('Matches', { league: 'English Premier League' })} />
             {dummyMatches.map(m => (
               <MatchCard key={m.idEvent || m.id} match={m} />
             ))}
