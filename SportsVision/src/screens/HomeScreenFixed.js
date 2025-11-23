@@ -10,6 +10,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { toggleFavourite, persistFavourites } from '../store/favouritesSlice';
 import { useTheme } from '../theme/ThemeContext';
 import Logo from '../components/Logo';
+import HeaderBar from '../components/HeaderBar';
 
 export default function HomeScreenFixed() {
   const [teams, setTeams] = useState([]);
@@ -101,22 +102,8 @@ export default function HomeScreenFixed() {
   if (loading) return <View style={[styles.center, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
-      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
-        <View style={styles.headerLeft}>
-          <Logo size={32} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>SportsVision</Text>
-        </View>
-
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={goToNotifications} style={styles.iconButton}>
-            <Feather name="bell" size={20} color={colors.muted} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={goToProfile} style={styles.iconButton}>
-            <Feather name="user" size={20} color={colors.muted} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}> 
+      <HeaderBar title="SportsVision" showBack={false} showBell={true} showProfile={true} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.rowBetween}>
