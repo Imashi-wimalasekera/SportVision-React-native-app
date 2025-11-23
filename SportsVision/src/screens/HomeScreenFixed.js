@@ -1,10 +1,11 @@
 // Clean HomeScreen (fixed file)
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, FlatList } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, FlatList, Modal } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { fetchTeamsByLeague, fetchPlayersByTeam, fetchUpcomingEventsByTeam, fetchTeamsFromLeagues } from '../api/sportsApi';
 import DEFAULT_LEAGUES from '../config/leagues';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -14,6 +15,8 @@ import Logo from '../components/Logo';
 import HeaderBar from '../components/HeaderBar';
 
 export default function HomeScreenFixed() {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedLeagues, setSelectedLeagues] = useState(DEFAULT_LEAGUES);
   const [teams, setTeams] = useState([]);
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -29,8 +32,8 @@ export default function HomeScreenFixed() {
     setLoading(true);
     async function load() {
       try {
-        // fetch from configured top leagues and merge with sample teams to ensure at least 12
-        const leagues = DEFAULT_LEAGUES;
+        // fetch from configured top leagues (user selectable) and merge with sample teams to ensure at least 12
+        const leagues = (selectedLeagues && selectedLeagues.length) ? selectedLeagues : DEFAULT_LEAGUES;
         const allTeams = await fetchTeamsFromLeagues(leagues);
         const fetchedUnique = (allTeams && allTeams.length) ? allTeams : (await fetchTeamsByLeague(DEFAULT_LEAGUES[0]));
         // dedupe fetched and sample teams and fill up to 12
@@ -83,6 +86,22 @@ export default function HomeScreenFixed() {
       } finally { setLoading(false); }
     }
     load();
+  }, [selectedLeagues]);
+
+  // persist league choices so user selection survives app restart
+  useEffect(() => {
+    AsyncStorage.setItem('@sv_selected_leagues', JSON.stringify(selectedLeagues)).catch(() => {});
+  }, [selectedLeagues]);
+
+  // load saved leagues on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@sv_selected_leagues').then(raw => {
+      if (!raw) return;
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length) setSelectedLeagues(arr);
+      } catch (e) {}
+    }).catch(() => {});
   }, []);
 
   useEffect(() => { dispatch(persistFavourites(favourites)); }, [favourites, dispatch]);
@@ -117,6 +136,14 @@ export default function HomeScreenFixed() {
     { idTeam: '12', strTeam: 'Mountain FC', strLeague: 'League Two', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=MF' },
   ];
 
+  function toggleLeague(l) {
+    setSelectedLeagues(prev => {
+      const has = prev.includes(l);
+      if (has) return prev.filter(x => x !== l);
+      return [...prev, l];
+    });
+  }
+
   const dummyTeams = (teams && teams.length) ? teams : sampleTeams;
 
   const dummyPlayers = players.length ? players : [
@@ -139,7 +166,8 @@ export default function HomeScreenFixed() {
           <Text style={[styles.subtle, { color: colors.muted }]}>Good to see you</Text>
         </View>
 
-        <View style={[styles.searchWrap, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        <View style={[styles.searchWrapRow, { marginBottom: 8 }]}> 
+          <View style={[styles.searchWrap, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}> 
           <Feather name="search" size={18} color={colors.muted} style={{ marginHorizontal: 8 }} />
           <TextInput value={query} onChangeText={setQuery} placeholder="Search teams, players, matches" placeholderTextColor={colors.muted} style={[styles.searchInput, { color: colors.text }]} />
           {query.length > 0 ? (
@@ -147,6 +175,10 @@ export default function HomeScreenFixed() {
               <Feather name="x" size={16} color={colors.muted} />
             </TouchableOpacity>
           ) : null}
+          </View>
+          <TouchableOpacity onPress={() => setModalOpen(true)} style={[styles.leagueBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Text style={{ color: colors.text }}>Leagues</Text>
+          </TouchableOpacity>
         </View>
 
         {query ? (
@@ -192,9 +224,32 @@ export default function HomeScreenFixed() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={modalOpen} animationType="fade" transparent onRequestClose={() => setModalOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center' }}>
+          <View style={{ margin: 24, backgroundColor: colors.card, padding: 12, borderRadius: 8 }}>
+            <Text style={{ color: colors.text, fontWeight: '800', marginBottom: 8 }}>Select leagues used on Home</Text>
+            {DEFAULT_LEAGUES.map(l => {
+              const selected = selectedLeagues.includes(l);
+              return (
+                <TouchableOpacity key={l} onPress={() => toggleLeague(l)} style={{ padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: selected ? colors.primary : colors.text }}>{l}</Text>
+                  <Feather name={selected ? 'check-square' : 'square'} size={18} color={selected ? colors.primary : colors.muted} />
+                </TouchableOpacity>
+              );
+            })}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+              <TouchableOpacity onPress={() => setModalOpen(false)} style={{ padding: 8 }}>
+                <Text style={{ color: colors.muted }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 
 function SectionHeader({ title, onViewAll }){
   const { colors } = useTheme();

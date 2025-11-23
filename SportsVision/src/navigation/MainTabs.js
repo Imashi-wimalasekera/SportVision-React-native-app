@@ -5,10 +5,12 @@ import FavouritesScreen from '../screens/FavouritesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import { Feather } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabs() {
+  const unread = useSelector(s => (s.notifications && s.notifications.items ? s.notifications.items.filter(n => n.unread !== false).length : 0));
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
       headerShown: false,
@@ -23,7 +25,7 @@ export default function MainTabs() {
     })}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Favourites" component={FavouritesScreen} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarBadge: unread > 0 ? unread : undefined }} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

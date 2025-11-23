@@ -147,7 +147,11 @@ export default function PlayersListScreen(){
       ) : (
         visible.length === 0 ? (
           <View style={{ padding: 12 }}>
-            {samplePlayers.map(p => renderItem({ item: p }))}
+            {samplePlayers.map(p => (
+              <React.Fragment key={p.idPlayer}>
+                {renderItem({ item: p })}
+              </React.Fragment>
+            ))}
           </View>
         ) : (
           <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idPlayer || i.id} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />

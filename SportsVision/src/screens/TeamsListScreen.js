@@ -107,7 +107,11 @@ export default function TeamsListScreen(){
       ) : (
         visible.length === 0 ? (
           <View style={{ padding: 12 }}>
-            {sampleTeams.map(t => renderItem({ item: t }))}
+            {sampleTeams.map(t => (
+              <React.Fragment key={t.idTeam}>
+                {renderItem({ item: t })}
+              </React.Fragment>
+            ))}
           </View>
         ) : (
           <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idTeam} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />

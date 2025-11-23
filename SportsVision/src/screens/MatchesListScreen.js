@@ -148,7 +148,11 @@ export default function MatchesListScreen(){
       ) : (
         visible.length === 0 ? (
           <View style={{ padding: 12 }}>
-            {sampleMatches.map(m => renderItem({ item: m }))}
+            {sampleMatches.map(m => (
+              <React.Fragment key={m.idEvent}>
+                {renderItem({ item: m })}
+              </React.Fragment>
+            ))}
           </View>
         ) : (
           <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idEvent || i.id} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
