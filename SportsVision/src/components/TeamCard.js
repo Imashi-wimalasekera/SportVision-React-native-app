@@ -1,30 +1,27 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeContext';
+import ImageWithFallback from './ImageWithFallback';
 
 export default function TeamCard({ team, onPress, isFav, onToggleFav }) {
+  const { colors } = useTheme();
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onPress(team)}>
-      {team.strTeamBadge ? (
-        <Image source={{ uri: team.strTeamBadge }} style={styles.avatar} />
-      ) : (
-        <View style={styles.avatarPlaceholder} />
-      )}
+    <TouchableOpacity style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={() => onPress(team)}>
+      <ImageWithFallback uri={team.strTeamBadge} size={56} alt={team.strTeam} style={{ marginRight: 12 }} />
       <View style={styles.content}>
-        <Text style={styles.title}>{team.strTeam}</Text>
-        <Text numberOfLines={2} style={styles.desc}>{team.strStadium || team.strLeague}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{team.strTeam}</Text>
+        <Text numberOfLines={2} style={[styles.desc, { color: colors.muted }]}>{team.strStadium || team.strLeague}</Text>
       </View>
       <TouchableOpacity onPress={() => onToggleFav(team)} style={styles.icon}>
-        <Feather name={isFav ? 'heart' : 'heart'} color={isFav ? 'red' : '#666'} size={20} />
+        <Feather name={'heart'} color={isFav ? colors.accent : colors.muted} size={20} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', padding: 12, alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee' },
-  avatar: { width: 56, height: 56, resizeMode: 'contain', marginRight: 12 },
-  avatarPlaceholder: { width: 56, height: 56, backgroundColor: '#ddd', marginRight: 12 },
+  card: { flexDirection: 'row', padding: 12, alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee', borderRadius: 10, marginVertical: 6, marginHorizontal: 2, elevation: 2 },
   content: { flex: 1 },
   title: { fontWeight: '600' },
   desc: { color: '#666', marginTop: 4 },
