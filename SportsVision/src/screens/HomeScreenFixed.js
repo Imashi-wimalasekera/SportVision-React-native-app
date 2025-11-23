@@ -28,13 +28,36 @@ export default function HomeScreenFixed() {
     async function load() {
       try {
         const t = await fetchTeamsByLeague('English Premier League');
-        setTeams((t || []).slice(0, 8));
-        if (t && t[0]){
-          const tm = t[0];
-          const p = await fetchPlayersByTeam(tm.idTeam).catch(()=>[]);
-          setPlayers((p || []).slice(0,6));
-          const ev = await fetchUpcomingEventsByTeam(tm.idTeam).catch(()=>[]);
-          setMatches((ev || []).slice(0,6));
+        const teamsSlice = (t || []).slice(0, 12);
+        setTeams(teamsSlice);
+        // Fetch players and upcoming events across the top teams to populate richer lists
+        const topTeams = teamsSlice.slice(0, 4);
+        if (topTeams.length) {
+          let playersAcc = [];
+          let matchesAcc = [];
+          await Promise.all(topTeams.map(async (tm) => {
+            const [p, ev] = await Promise.all([
+              fetchPlayersByTeam(tm.idTeam).catch(() => []),
+              fetchUpcomingEventsByTeam(tm.idTeam).catch(() => []),
+            ]);
+            if (p && p.length) playersAcc = playersAcc.concat(p);
+            if (ev && ev.length) matchesAcc = matchesAcc.concat(ev);
+          }));
+
+          const dedupeBy = (arr, key) => {
+            const map = new Map();
+            (arr || []).forEach(item => {
+              const k = item && (item[key] || item.id || item.idPlayer || item.idEvent);
+              if (k && !map.has(k)) map.set(k, item);
+            });
+            return Array.from(map.values());
+          };
+
+          playersAcc = dedupeBy(playersAcc, 'idPlayer').slice(0, 24);
+          matchesAcc = dedupeBy(matchesAcc, 'idEvent').slice(0, 12);
+
+          setPlayers(playersAcc);
+          setMatches(matchesAcc);
         }
       } catch (e) {
         setTeams([{
@@ -78,10 +101,10 @@ export default function HomeScreenFixed() {
   if (loading) return <View style={[styles.center, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}> 
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
       <View style={[styles.header, { borderBottomColor: colors.border }]}> 
         <View style={styles.headerLeft}>
-          <Logo size={36} />
+          <Logo size={32} />
           <Text style={[styles.headerTitle, { color: colors.text }]}>SportsVision</Text>
         </View>
 
@@ -124,12 +147,12 @@ export default function HomeScreenFixed() {
           </View>
         ) : (
           <>
-            <SectionHeader title="Popular Teams" onViewAll={() => Alert.alert('View All', 'Show all popular teams')} />
+                      <SectionHeader title="Popular Teams" onViewAll={() => navigation.navigate('Teams', { league: 'English Premier League' })} />
             <FlatList data={dummyTeams} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(i) => i.idTeam} renderItem={({ item }) => (
               <TeamSmallCard team={item} onPress={() => onPress(item)} onToggleFav={() => onToggleFav(item)} isFav={!!favourites.find(f => f.idTeam === item.idTeam)} />
             )} style={{ marginVertical: 8 }} />
 
-            <SectionHeader title="Top Players" onViewAll={() => Alert.alert('View All', 'Show all players')} />
+            <SectionHeader title="Top Players" onViewAll={() => navigation.navigate('Players', { league: 'English Premier League' })} />
             <FlatList data={dummyPlayers} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(i) => i.idPlayer || i.id} renderItem={({ item }) => (
               <PlayerCard player={item} />
             )} style={{ marginVertical: 8 }} />
@@ -155,14 +178,21 @@ function SectionHeader({ title, onViewAll }){
   );
 }
 
-function TeamSmallCard({ team, onPress }){
+function TeamSmallCard({ team, onPress, onToggleFav, isFav }){
   const { colors } = useTheme();
   return (
-    <TouchableOpacity onPress={() => onPress(team)} style={[styles.smallCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+    <TouchableOpacity onPress={() => onPress(team)} style={[styles.smallCard, styles.smallCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
       <ImageWithFallback uri={team.strTeamBadge} size={72} alt={team.strTeam} style={{ marginBottom: 8 }} />
       <Text style={[styles.smallTitle, { color: colors.text }]} numberOfLines={1}>{team.strTeam}</Text>
       <Text style={[styles.smallDesc, { color: colors.muted }]} numberOfLines={1}>{team.strLeague}</Text>
-      <View style={styles.badge}><Text style={{ color: '#fff', fontSize: 11 }}>Popular</Text></View>
+      <View style={styles.rowBottom}>
+        <View style={styles.badge}><Text style={{ color: '#fff', fontSize: 11 }}>Popular</Text></View>
+        {typeof onToggleFav === 'function' ? (
+          <TouchableOpacity onPress={() => onToggleFav(team)} style={styles.favBtn}>
+            <Feather name={isFav ? 'heart' : 'heart'} size={16} color={isFav ? '#ef4444' : '#9ca3af'} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -170,7 +200,7 @@ function TeamSmallCard({ team, onPress }){
 function PlayerCard({ player }){
   const { colors } = useTheme();
   return (
-    <View style={[styles.playerCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+    <View style={[styles.playerCard, styles.playerCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
       <ImageWithFallback uri={player.strThumb || player.image} size={84} alt={player.strPlayer || player.name} style={{ marginBottom: 8 }} />
       <Text style={[styles.playerName, { color: colors.text }]} numberOfLines={1}>{player.strPlayer || player.name}</Text>
       <Text style={[styles.smallDesc, { color: colors.muted }]}>{player.strTeam || player.team} • {player.strPosition || player.position}</Text>
@@ -183,7 +213,7 @@ function MatchCard({ match }){
   const { colors } = useTheme();
   const dt = new Date(match.dateEvent || match.datetime || Date.now());
   return (
-    <View style={[styles.matchCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+    <View style={[styles.matchCard, styles.matchCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
       <View style={styles.matchRow}>
         <ImageWithFallback uri={match.strBadge || (match.a && match.a.badge)} size={40} />
         <ImageWithFallback uri={match.strBadge || (match.b && match.b.badge)} size={40} />
@@ -201,11 +231,11 @@ function MatchCard({ match }){
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, justifyContent: 'space-between' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, justifyContent: 'space-between' },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', marginLeft: 8 },
-  iconButton: { marginLeft: 12, padding: 6 },
+  headerTitle: { fontSize: 18, fontWeight: '700', marginLeft: 6 },
+  iconButton: { marginLeft: 10, padding: 4 },
   listContent: { paddingVertical: 8 },
   content: { padding: 16, paddingBottom: 32 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
@@ -216,16 +246,21 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: '100%', paddingHorizontal: 8 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18 },
   sectionTitle: { fontSize: 16, fontWeight: '800' },
-  smallCard: { width: 140, padding: 12, marginHorizontal: 8, borderWidth: 1, borderRadius: 12, alignItems: 'center', marginRight: 12 },
+  smallCard: { width: 120, padding: 10, marginHorizontal: 6, borderWidth: 1, borderRadius: 12, alignItems: 'center', marginRight: 10 },
+  smallCardElevated: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  rowBottom: { width: '100%', marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  favBtn: { padding: 6 },
   smallAvatar: { width: 72, height: 72, resizeMode: 'contain', marginBottom: 8 },
   smallTitle: { fontWeight: '700' },
   smallDesc: { fontSize: 12, marginTop: 4 },
   badge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#f97316', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  playerCard: { width: 140, padding: 12, marginHorizontal: 8, borderWidth: 1, borderRadius: 12, alignItems: 'center' },
+  playerCard: { width: 120, padding: 10, marginHorizontal: 6, borderWidth: 1, borderRadius: 12, alignItems: 'center' },
+  playerCardElevated: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
   playerAvatar: { width: 84, height: 84, borderRadius: 42, marginBottom: 8 },
   playerName: { fontWeight: '800' },
   playerBadge: { marginTop: 8, backgroundColor: '#10b981', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   matchCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderRadius: 12, marginTop: 12 },
+  matchCardElevated: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   matchRow: { width: 68, justifyContent: 'center', alignItems: 'center' },
   matchBadge: { width: 40, height: 40, resizeMode: 'contain', marginBottom: 4 },
   matchTitle: { fontWeight: '800' },

@@ -6,6 +6,8 @@ import MainTabs from './MainTabs';
 import DetailsScreen from '../screens/DetailsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import LandingScreen from '../screens/LandingScreen';
+import TeamsListScreen from '../screens/TeamsListScreen';
+import PlayersListScreen from '../screens/PlayersListScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -18,6 +20,8 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="Details" component={DetailsScreen} />
+          <Stack.Screen name="Teams" component={TeamsListScreen} />
+          <Stack.Screen name="Players" component={PlayersListScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </>
       ) : (
@@ -25,6 +29,8 @@ export default function AppNavigator() {
           <Stack.Screen name="Landing" component={LandingScreen} />
           <Stack.Screen name="Auth" component={AuthNavigator} />
           <Stack.Screen name="Details" component={DetailsScreen} />
+          <Stack.Screen name="Teams" component={TeamsListScreen} />
+          <Stack.Screen name="Players" component={PlayersListScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </>
       )}
