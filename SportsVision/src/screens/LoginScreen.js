@@ -25,10 +25,6 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <Logo size={100} />
-      <View style={styles.wordArtWrap}>
-        <Text style={[styles.appNameShadow, { color: colors.accent }]}>SportsVision</Text>
-        <Text style={[styles.appName, { color: colors.text }]}>SportsVision</Text>
-      </View>
       <Text style={[styles.title, { color: colors.text }]}>Login to continue</Text>
       <Formik initialValues={{ username: '', password: '' }} validationSchema={schema} onSubmit={onSubmit}>
         {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (

@@ -26,6 +26,6 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "THESPORTSDB_KEY": "1"
+      "THESPORTSDB_KEY": "123"
     }
 }}

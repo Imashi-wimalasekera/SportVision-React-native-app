@@ -27,10 +27,6 @@ export default function RegisterScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
       <Logo size={84} />
-      <View style={styles.wordArtWrap}>
-        <Text style={[styles.appNameShadow, { color: colors.accent }]}>SportsVision</Text>
-        <Text style={[styles.appName, { color: colors.text }]}>SportsVision</Text>
-      </View>
       <Text style={[styles.title, { color: colors.text }]}>Create an account</Text>
       <Formik initialValues={{ name: '', email: '', password: '', confirm: '' }} validationSchema={schema} onSubmit={onSubmit}>
         {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (

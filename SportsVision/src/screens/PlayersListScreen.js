@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
-import { fetchTeamsByLeague, fetchPlayersByTeam } from '../api/sportsApi';
+import { fetchTeamsByLeague, fetchPlayersByTeam, fetchTeamsFromLeagues } from '../api/sportsApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackHeader from '../components/BackHeader';
@@ -12,9 +14,9 @@ export default function PlayersListScreen(){
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
-  const leagueParam = route.params?.league || 'English Premier League';
+  const leagueParam = route.params?.league || null;
 
-  const [league, setLeague] = useState(leagueParam);
+  const [league, setLeague] = useState(leagueParam || 'English Premier League');
   const [teams, setTeams] = useState([]);
   const [teamsIndex, setTeamsIndex] = useState(0);
   const [playersAcc, setPlayersAcc] = useState([]);
@@ -24,6 +26,11 @@ export default function PlayersListScreen(){
   const PAGE_SIZE = 16;
 
   useEffect(() => { resetAndLoad(); }, [league]);
+  useFocusEffect(
+    useCallback(() => {
+      resetAndLoad();
+    }, [league])
+  );
   const insets = useSafeAreaInsets();
 
   const resetAndLoad = async () => {
@@ -33,8 +40,19 @@ export default function PlayersListScreen(){
     setVisible([]);
     setTeamsIndex(0);
     try {
-      const t = await fetchTeamsByLeague(league);
-      const topTeams = (t || []).slice(0, 12);
+      // If a league param is given, use it. Otherwise fetch across persisted selected leagues.
+      let topTeams = [];
+      if (leagueParam) {
+        const t = await fetchTeamsByLeague(league);
+        topTeams = (t || []).slice(0, 12);
+      } else {
+        const raw = await AsyncStorage.getItem('@sv_selected_leagues').catch(() => null);
+        const leagues = raw ? JSON.parse(raw) : ['English Premier League'];
+        console.debug && console.debug('[Players] loading teams for leagues:', leagues);
+        const t = await fetchTeamsFromLeagues(leagues);
+        topTeams = (t || []).slice(0, 12);
+      }
+      console.debug && console.debug('[Players] topTeams count:', topTeams.length);
       setTeams(topTeams);
       // fetch initial players for first 2 teams
       await fetchPlayersForNextTeams(2, topTeams, 0);
@@ -59,6 +77,7 @@ export default function PlayersListScreen(){
     let acc = [];
     await Promise.all(slice.map(async (tm) => {
       const p = await fetchPlayersByTeam(tm.idTeam).catch(() => []);
+      console.debug && console.debug('[Players] fetched for team', tm.strTeam || tm.name, '->', (p && p.length) || 0);
       if (p && p.length) acc = acc.concat(p);
     }));
     const merged = dedupeBy(playersAcc.concat(acc), 'idPlayer');
@@ -145,7 +164,8 @@ export default function PlayersListScreen(){
           <SkeletonRow />
         </View>
       ) : (
-        visible.length === 0 ? (
+        // Show sample players only when no real players were fetched.
+        (playersAcc && playersAcc.length === 0) ? (
           <View style={{ padding: 12 }}>
             {samplePlayers.map(p => (
               <React.Fragment key={p.idPlayer}>

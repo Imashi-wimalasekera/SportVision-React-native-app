@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, FlatList, Modal } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { fetchTeamsByLeague, fetchPlayersByTeam, fetchUpcomingEventsByTeam, fetchTeamsFromLeagues } from '../api/sportsApi';
+import { fetchTeamsByLeague, fetchPlayersByTeam, fetchUpcomingEventsByTeam, fetchTeamsFromLeagues, fetchTeamByName } from '../api/sportsApi';
 import DEFAULT_LEAGUES from '../config/leagues';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -32,10 +32,26 @@ export default function HomeScreenFixed() {
     setLoading(true);
     async function load() {
       try {
-        // fetch from configured top leagues (user selectable) and merge with sample teams to ensure at least 12
+        // fetch from configured top leagues (user selectable)
         const leagues = (selectedLeagues && selectedLeagues.length) ? selectedLeagues : DEFAULT_LEAGUES;
-        const allTeams = await fetchTeamsFromLeagues(leagues);
-        const fetchedUnique = (allTeams && allTeams.length) ? allTeams : (await fetchTeamsByLeague(DEFAULT_LEAGUES[0]));
+        let allTeams = await fetchTeamsFromLeagues(leagues);
+        // If the aggregated multi-league fetch returned nothing, try per-league until we find a non-empty result.
+        if ((!allTeams || allTeams.length === 0) && Array.isArray(leagues) && leagues.length) {
+          try {
+            for (let i = 0; i < leagues.length; i++) {
+              const l = leagues[i];
+              const by = await fetchTeamsByLeague(l).catch(() => []);
+              if (by && by.length) {
+                allTeams = by;
+                console.debug && console.debug('[Home] Found teams by single-league fallback:', l, by.length);
+                break;
+              }
+            }
+          } catch (e) {
+            // ignore and continue to sample fallback below
+          }
+        }
+        const fetchedUnique = (allTeams && allTeams.length) ? allTeams : [];
         // dedupe fetched and sample teams and fill up to 12
         const dedupeMap = new Map();
         const pushIfNew = (t) => {
@@ -45,10 +61,14 @@ export default function HomeScreenFixed() {
           if (!key) return;
           if (!dedupeMap.has(key)) dedupeMap.set(key, t);
         };
-        (fetchedUnique || []).forEach(pushIfNew);
-        // then add sampleTeams to fill any gaps
-        sampleTeams.forEach(pushIfNew);
+        if (fetchedUnique && fetchedUnique.length) {
+          (fetchedUnique || []).forEach(pushIfNew);
+        } else {
+          // only use sample fallback when no real data was returned
+          sampleTeams.forEach(pushIfNew);
+        }
         const finalTeams = Array.from(dedupeMap.values()).slice(0, 12);
+        try { console.debug('[Home] fetchedUnique count:', (fetchedUnique && fetchedUnique.length) || 0, ' -> finalTeams:', finalTeams.length); } catch (e) {}
         setTeams(finalTeams);
         // Fetch players and upcoming events across the top teams to populate richer lists
         const topTeams = finalTeams.slice(0, 6);
@@ -56,10 +76,13 @@ export default function HomeScreenFixed() {
           let playersAcc = [];
           let matchesAcc = [];
           await Promise.all(topTeams.map(async (tm) => {
+            const id = (tm && (tm.idTeam || tm.id));
+            if (!id) return;
             const [p, ev] = await Promise.all([
-              fetchPlayersByTeam(tm.idTeam).catch(() => []),
-              fetchUpcomingEventsByTeam(tm.idTeam).catch(() => []),
+              fetchPlayersByTeam(id).catch(() => []),
+              fetchUpcomingEventsByTeam(id).catch(() => []),
             ]);
+            console.debug && console.debug('[Home] prefetch team:', tm && (tm.strTeam || tm.name), 'id:', id, 'players:', (p && p.length) || 0, 'events:', (ev && ev.length) || 0);
             if (p && p.length) playersAcc = playersAcc.concat(p);
             if (ev && ev.length) matchesAcc = matchesAcc.concat(ev);
           }));
@@ -76,8 +99,32 @@ export default function HomeScreenFixed() {
           playersAcc = dedupeBy(playersAcc, 'idPlayer').slice(0, 36);
           matchesAcc = dedupeBy(matchesAcc, 'idEvent').slice(0, 24);
 
-          setPlayers(playersAcc);
-          setMatches(matchesAcc);
+          // Enrich matches with home/away badge URLs by searching team info for unique team names
+          try {
+            const teamNames = new Set();
+            (matchesAcc || []).forEach(m => {
+              if (m.strHomeTeam) teamNames.add(m.strHomeTeam);
+              if (m.strAwayTeam) teamNames.add(m.strAwayTeam);
+            });
+            const names = Array.from(teamNames).slice(0, 50); // cap to avoid huge requests
+            const badgeMap = {};
+            await Promise.all(names.map(async (nm) => {
+              try {
+                const t = await fetchTeamByName(nm).catch(() => []);
+                if (t && t.length) badgeMap[nm] = t[0].strTeamBadge || t[0].strTeamLogo || t[0].strTeamJersey || null;
+              } catch (e) { badgeMap[nm] = null; }
+            }));
+            const enriched = matchesAcc.map(m => ({
+              ...m,
+              homeBadge: (m.homeBadge || m.strHomeTeamBadge) || badgeMap[m.strHomeTeam] || null,
+              awayBadge: (m.awayBadge || m.strAwayTeamBadge) || badgeMap[m.strAwayTeam] || null,
+            }));
+            setPlayers(playersAcc);
+            setMatches(enriched);
+          } catch (e) {
+            setPlayers(playersAcc);
+            setMatches(matchesAcc);
+          }
         }
       } catch (e) {
         setTeams([{
@@ -239,7 +286,7 @@ export default function HomeScreenFixed() {
               );
             })}
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-              <TouchableOpacity onPress={() => setModalOpen(false)} style={{ padding: 8 }}>
+              <TouchableOpacity onPress={async () => { try { await AsyncStorage.setItem('@sv_selected_leagues', JSON.stringify(selectedLeagues)); } catch (e) {} setModalOpen(false); }} style={{ padding: 8 }}>
                 <Text style={{ color: colors.muted }}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -263,9 +310,10 @@ function SectionHeader({ title, onViewAll }){
 
 function TeamSmallCard({ team, onPress, onToggleFav, isFav }){
   const { colors } = useTheme();
+  const badgeUri = team && (team.strTeamBadge || team.strTeamLogo || team.strTeamJersey || team.teamBadge || team.badge);
   return (
     <TouchableOpacity onPress={() => onPress(team)} style={[styles.smallCard, styles.smallCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-      <ImageWithFallback uri={team.strTeamBadge} size={72} alt={team.strTeam} style={{ marginBottom: 8 }} />
+      <ImageWithFallback uri={badgeUri} size={72} alt={team.strTeam} style={{ marginBottom: 8 }} />
       <Text style={[styles.smallTitle, { color: colors.text }]} numberOfLines={1}>{team.strTeam}</Text>
       <Text style={[styles.smallDesc, { color: colors.muted }]} numberOfLines={1}>{team.strLeague}</Text>
       <View style={styles.rowBottom}>
@@ -298,8 +346,8 @@ function MatchCard({ match }){
   return (
     <View style={[styles.matchCard, styles.matchCardElevated, { backgroundColor: colors.card, borderColor: colors.border }]}> 
       <View style={styles.matchRow}>
-        <ImageWithFallback uri={match.strBadge || (match.a && match.a.badge)} size={40} />
-        <ImageWithFallback uri={match.strBadge || (match.b && match.b.badge)} size={40} />
+        <ImageWithFallback uri={match.homeBadge || match.strThumb || match.strBadge || (match.a && match.a.badge)} size={40} />
+        <ImageWithFallback uri={match.awayBadge || match.strBadge || (match.b && match.b.badge)} size={40} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.matchTitle, { color: colors.text }]}>{match.strEvent || match.title}</Text>

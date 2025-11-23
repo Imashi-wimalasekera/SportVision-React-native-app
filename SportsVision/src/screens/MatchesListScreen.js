@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, ActivityIndicator, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { fetchTeamsByLeague, fetchUpcomingEventsByTeam } from '../api/sportsApi';
+import { fetchTeamsByLeague, fetchUpcomingEventsByTeam, fetchTeamsFromLeagues } from '../api/sportsApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -12,9 +14,9 @@ export default function MatchesListScreen(){
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
-  const leagueParam = route.params?.league || 'English Premier League';
+  const leagueParam = route.params?.league || null;
 
-  const [league, setLeague] = useState(leagueParam);
+  const [league, setLeague] = useState(leagueParam || 'English Premier League');
   const [teams, setTeams] = useState([]);
   const [teamsIndex, setTeamsIndex] = useState(0);
   const [matchesAcc, setMatchesAcc] = useState([]);
@@ -24,6 +26,11 @@ export default function MatchesListScreen(){
   const PAGE_SIZE = 12;
 
   useEffect(() => { resetAndLoad(); }, [league]);
+  useFocusEffect(
+    useCallback(() => {
+      resetAndLoad();
+    }, [league])
+  );
   const insets = useSafeAreaInsets();
 
   const resetAndLoad = async () => {
@@ -33,8 +40,18 @@ export default function MatchesListScreen(){
     setVisible([]);
     setTeamsIndex(0);
     try {
-      const t = await fetchTeamsByLeague(league);
-      const topTeams = (t || []).slice(0, 12);
+      let topTeams = [];
+      if (leagueParam) {
+        const t = await fetchTeamsByLeague(league);
+        topTeams = (t || []).slice(0, 12);
+      } else {
+        const raw = await AsyncStorage.getItem('@sv_selected_leagues').catch(() => null);
+        const leagues = raw ? JSON.parse(raw) : ['English Premier League'];
+        console.debug && console.debug('[Matches] loading teams for leagues:', leagues);
+        const t = await fetchTeamsFromLeagues(leagues);
+        topTeams = (t || []).slice(0, 12);
+      }
+      console.debug && console.debug('[Matches] topTeams count:', topTeams.length);
       setTeams(topTeams);
       await fetchMatchesForNextTeams(2, topTeams, 0);
     } catch (e) {
@@ -58,6 +75,7 @@ export default function MatchesListScreen(){
     let acc = [];
     await Promise.all(slice.map(async (tm) => {
       const ev = await fetchUpcomingEventsByTeam(tm.idTeam).catch(() => []);
+      console.debug && console.debug('[Matches] fetched events for team', tm.strTeam || tm.name, '->', (ev && ev.length) || 0);
       if (ev && ev.length) acc = acc.concat(ev);
     }));
     const merged = dedupeBy(matchesAcc.concat(acc), 'idEvent');
@@ -84,7 +102,7 @@ export default function MatchesListScreen(){
     return (
       <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Details', { id: item.idEvent || item.id, match: item })}>
         <View style={{ width: 60, alignItems: 'center' }}>
-          <ImageWithFallback uri={item.strThumb || item.strBadge || (item.a && item.a.badge)} size={40} />
+          <ImageWithFallback uri={item.homeBadge || item.strThumb || item.strBadge || (item.a && item.a.badge) || (item.b && item.b.badge)} size={40} />
         </View>
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{item.strEvent || item.title}</Text>
@@ -146,16 +164,13 @@ export default function MatchesListScreen(){
           <SkeletonRow />
         </View>
       ) : (
-        visible.length === 0 ? (
-          <View style={{ padding: 12 }}>
-            {sampleMatches.map(m => (
-              <React.Fragment key={m.idEvent}>
-                {renderItem({ item: m })}
-              </React.Fragment>
-            ))}
-          </View>
-        ) : (
+        // Prefer showing real fetched matches. If none are available, show a friendly empty state.
+        (matchesAcc && matchesAcc.length > 0) ? (
           <FlatList data={visible} renderItem={renderItem} keyExtractor={(i) => i.idEvent || i.id} onEndReached={loadMore} onEndReachedThreshold={0.5} contentContainerStyle={{ padding: 12 }} />
+        ) : (
+          <View style={{ padding: 12 }}>
+            <Text style={{ color: colors.muted }}>No upcoming matches found for the selected leagues.</Text>
+          </View>
         )
       )}
     </View>

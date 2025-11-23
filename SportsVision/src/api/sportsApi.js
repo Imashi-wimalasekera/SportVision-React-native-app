@@ -15,10 +15,13 @@ const resolveApiKey = () => {
 
 const API_KEY = resolveApiKey();
 const BASE = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
+// log masked key for debugging (development only)
+try { console.debug('[sportsApi] Using API key: ****' + String(API_KEY).slice(-4)); } catch (e) {}
 
 export async function fetchTeamsByLeague(league = 'English Premier League') {
   const url = `${BASE}/search_all_teams.php?l=${encodeURIComponent(league)}`;
   const res = await axios.get(url);
+  try { console.debug(`[sportsApi] fetchTeamsByLeague("${league}") ->`, (res.data && res.data.teams) ? res.data.teams.length : 0); } catch (e) {}
   return res.data.teams || [];
 }
 
@@ -31,6 +34,7 @@ export async function fetchTeamDetails(id) {
 export async function fetchPlayersByTeam(teamId) {
   const url = `${BASE}/lookup_all_players.php?id=${teamId}`;
   const res = await axios.get(url);
+  try { console.debug('[sportsApi] fetchPlayersByTeam(', teamId, ') ->', (res.data && res.data.player) ? res.data.player.length : 0); } catch (e) {}
   return res.data && res.data.player ? res.data.player : [];
 }
 
@@ -38,6 +42,13 @@ export async function fetchUpcomingEventsByTeam(teamId) {
   const url = `${BASE}/eventsnext.php?id=${teamId}`;
   const res = await axios.get(url);
   return res.data && res.data.events ? res.data.events : [];
+}
+
+export async function fetchTeamByName(name) {
+  if (!name) return [];
+  const url = `${BASE}/searchteams.php?t=${encodeURIComponent(name)}`;
+  const res = await axios.get(url).catch(() => ({ data: null }));
+  return res.data && res.data.teams ? res.data.teams : [];
 }
 
 export async function fetchTeamsFromLeagues(leagues = []) {
@@ -52,5 +63,6 @@ export async function fetchTeamsFromLeagues(leagues = []) {
     const key = id || (t && t.strTeam) || Math.random();
     if (!map.has(key)) map.set(key, t);
   });
+  try { console.debug('[sportsApi] fetchTeamsFromLeagues -> fetched', all.length, 'raw,', map.size, 'deduped'); } catch (e) {}
   return Array.from(map.values());
 }
