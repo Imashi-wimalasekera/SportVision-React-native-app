@@ -24,6 +24,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "THESPORTSDB_KEY": "https://www.thesportsdb.com/free_sports_api"
     }
-  }
 }

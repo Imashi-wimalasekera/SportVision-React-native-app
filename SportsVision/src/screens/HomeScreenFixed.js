@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { fetchTeamsByLeague, fetchPlayersByTeam, fetchUpcomingEventsByTeam } from '../api/sportsApi';
+import { fetchTeamsByLeague, fetchPlayersByTeam, fetchUpcomingEventsByTeam, fetchTeamsFromLeagues } from '../api/sportsApi';
+import DEFAULT_LEAGUES from '../config/leagues';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -28,11 +29,26 @@ export default function HomeScreenFixed() {
     setLoading(true);
     async function load() {
       try {
-        const t = await fetchTeamsByLeague('English Premier League');
-        const teamsSlice = (t || []).slice(0, 12);
-        setTeams(teamsSlice);
+        // fetch from configured top leagues and merge with sample teams to ensure at least 12
+        const leagues = DEFAULT_LEAGUES;
+        const allTeams = await fetchTeamsFromLeagues(leagues);
+        const fetchedUnique = (allTeams && allTeams.length) ? allTeams : (await fetchTeamsByLeague(DEFAULT_LEAGUES[0]));
+        // dedupe fetched and sample teams and fill up to 12
+        const dedupeMap = new Map();
+        const pushIfNew = (t) => {
+          const id = t && (t.idTeam || t.id);
+          const name = t && (t.strTeam || t.name || '').trim();
+          const key = id || name;
+          if (!key) return;
+          if (!dedupeMap.has(key)) dedupeMap.set(key, t);
+        };
+        (fetchedUnique || []).forEach(pushIfNew);
+        // then add sampleTeams to fill any gaps
+        sampleTeams.forEach(pushIfNew);
+        const finalTeams = Array.from(dedupeMap.values()).slice(0, 12);
+        setTeams(finalTeams);
         // Fetch players and upcoming events across the top teams to populate richer lists
-        const topTeams = teamsSlice.slice(0, 4);
+        const topTeams = finalTeams.slice(0, 6);
         if (topTeams.length) {
           let playersAcc = [];
           let matchesAcc = [];
@@ -54,8 +70,8 @@ export default function HomeScreenFixed() {
             return Array.from(map.values());
           };
 
-          playersAcc = dedupeBy(playersAcc, 'idPlayer').slice(0, 24);
-          matchesAcc = dedupeBy(matchesAcc, 'idEvent').slice(0, 12);
+          playersAcc = dedupeBy(playersAcc, 'idPlayer').slice(0, 36);
+          matchesAcc = dedupeBy(matchesAcc, 'idEvent').slice(0, 24);
 
           setPlayers(playersAcc);
           setMatches(matchesAcc);
@@ -86,10 +102,22 @@ export default function HomeScreenFixed() {
   const goToProfile = () => navigation.navigate('Profile');
   const goToNotifications = () => navigation.navigate('Notifications');
 
-  const dummyTeams = teams.length ? teams : [
+  const sampleTeams = [
     { idTeam: '1', strTeam: 'Red Warriors', strLeague: 'Premier League', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=RW' },
     { idTeam: '2', strTeam: 'Blue Strikers', strLeague: 'Championship', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=BS' },
+    { idTeam: '3', strTeam: 'Green United', strLeague: 'Premier League', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=GU' },
+    { idTeam: '4', strTeam: 'Yellow Tigers', strLeague: 'League One', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=YT' },
+    { idTeam: '5', strTeam: 'Black Panthers', strLeague: 'Premier League', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=BP' },
+    { idTeam: '6', strTeam: 'White Falcons', strLeague: 'Championship', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=WF' },
+    { idTeam: '7', strTeam: 'Orange City', strLeague: 'League Two', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=OC' },
+    { idTeam: '8', strTeam: 'Silver Stars', strLeague: 'Premier League', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=SS' },
+    { idTeam: '9', strTeam: 'Golden Eagles', strLeague: 'Premier League', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=GE' },
+    { idTeam: '10', strTeam: 'City United', strLeague: 'Championship', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=CU' },
+    { idTeam: '11', strTeam: 'Coastal Rovers', strLeague: 'League One', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=CR' },
+    { idTeam: '12', strTeam: 'Mountain FC', strLeague: 'League Two', strTeamBadge: 'https://via.placeholder.com/80x80.png?text=MF' },
   ];
+
+  const dummyTeams = (teams && teams.length) ? teams : sampleTeams;
 
   const dummyPlayers = players.length ? players : [
     { idPlayer: 'p1', strPlayer: 'Liam Smith', strTeam: 'Red Warriors', strPosition: 'Forward', strThumb: 'https://via.placeholder.com/90x90.png?text=LS' },

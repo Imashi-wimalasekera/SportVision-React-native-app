@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { fetchTeamsByLeague } from '../api/sportsApi';
+import DEFAULT_LEAGUES from '../config/leagues';
 import ImageWithFallback from '../components/ImageWithFallback';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackHeader from '../components/BackHeader';
@@ -12,7 +13,7 @@ export default function TeamsListScreen(){
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
-  const leagueParam = route.params?.league || 'English Premier League';
+  const leagueParam = route.params?.league || DEFAULT_LEAGUES[0];
 
   const [league, setLeague] = useState(leagueParam);
   const [allTeams, setAllTeams] = useState([]);
@@ -52,7 +53,7 @@ export default function TeamsListScreen(){
     </TouchableOpacity>
   );
 
-  const LEAGUES = ['English Premier League', 'La Liga', 'Serie A', 'Bundesliga'];
+  const LEAGUES = DEFAULT_LEAGUES;
 
   const SkeletonRow = () => (
     <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.card }]}> 
