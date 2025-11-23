@@ -34,7 +34,6 @@ export async function fetchTeamDetails(id) {
 export async function fetchPlayersByTeam(teamId) {
   const url = `${BASE}/lookup_all_players.php?id=${teamId}`;
   const res = await axios.get(url);
-  try { console.debug('[sportsApi] fetchPlayersByTeam(', teamId, ') ->', (res.data && res.data.player) ? res.data.player.length : 0); } catch (e) {}
   return res.data && res.data.player ? res.data.player : [];
 }
 

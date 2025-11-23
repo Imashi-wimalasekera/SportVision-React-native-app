@@ -1,0 +1,95 @@
+# SportVision (React Native / Expo)
+
+Lightweight mobile app built with Expo + React Native. Uses TheSportsDB free API to fetch teams, players and upcoming matches. This README explains setup, how to provide your TheSportsDB API key, and where to find main features implemented so far.
+
+## Quick Start (development)
+
+1. Install dependencies
+
+```powershell
+cd SportsVision
+npm install
+```
+
+2. Add your TheSportsDB API key (recommended)
+
+- Create a `.env` file at the project root (we created a `.env` placeholder). Add the key:
+
+```
+THESPORTSDB_KEY=your_real_key_here
+```
+
+- We wired `app.config.js` to load `.env` into `expo.extra` so the app reads the key via `expo-constants`.
+
+Alternative: set the key in `app.json` under `expo.extra.THESPORTSDB_KEY` or set the environment variable before starting:
+
+```powershell
+$env:THESPORTSDB_KEY = 'your_real_key_here'; npm start
+```
+
+If no key is provided the app falls back to TheSportsDB public test key `1` (rate-limited) — useful for quick local checks but not for sustained testing.
+
+3. Start the dev server
+
+```powershell
+npm start
+```
+
+# SportVision (React Native / Expo)
+
+A compact, actionable README for local development and debugging.
+
+## 🚀 Quick Start
+
+1. Install dependencies
+
+```powershell
+cd SportsVision
+npm install
+```
+
+2. Provide TheSportsDB API key (recommended)
+
+- Create a `.env` file in the `SportsVision/` folder with:
+
+```env
+THESPORTSDB_KEY=your_real_key_here
+```
+
+- The project loads this into `expo.extra` via `app.config.js`. `src/api/sportsApi.js` will resolve the key from Expo extras or `process.env`. If no key is present, the public test key `1` is used (limited results).
+
+3. Start the app
+
+```powershell
+npx expo start -c
+```
+
+Open in Expo Go or a simulator.
+
+## 📁 Project Structure (important files)
+
+- `src/api/sportsApi.js` — TheSportsDB wrapper (teams, players, upcoming events)
+- `src/config/leagues.js` — default league list
+- `src/screens/HomeScreenFixed.js` — Home (league picker, popular teams, top players, upcoming matches)
+- `src/screens/TeamsListScreen.js`, `PlayersListScreen.js`, `MatchesListScreen.js` — list screens
+- `src/components/ImageWithFallback.js` — image fallback helper
+- `src/navigation/MainTabs.js` — bottom tabs (now follows theme)
+- `src/theme/ThemeContext.js` — light/dark colors and toggle
+- `src/store/` — Redux slices (auth, favourites, notifications)
+
+## ✨ Features Summary
+
+- Multi-league fetching and deduplication for Home
+- Persisted league selection (AsyncStorage)
+- Prefetch players & upcoming matches for top teams
+- Robust logo fallbacks for teams and matches
+- Notifications with unread badge on bottom tabs
+- Dark mode support (tab bar and screens follow theme)
+
+## 🐞 Debugging tips
+
+- If UI shows sample/mock data, open Metro logs — the app prints diagnostic messages like:
+  - `[Players] fetched for team XYZ -> N`
+  - `[Home] prefetch team: XYZ id: 123 players: X events: Y`
+- Zero counts usually indicate the current TheSportsDB key returned limited/no data. Replace the key in `.env` with your real key and restart Metro.
+
